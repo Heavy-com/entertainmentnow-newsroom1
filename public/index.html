@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EntertainmentNow — Newsroom Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0b;
+    --surface: #111113;
+    --surface2: #18181c;
+    --surface3: #1f1f25;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #f0ede8;
+    --text2: #9b9794;
+    --text3: #5a5855;
+    --red: #e8412a;
+    --red-dim: rgba(232,65,42,0.12);
+    --red-glow: rgba(232,65,42,0.25);
+    --amber: #d4860f;
+    --amber-dim: rgba(212,134,15,0.1);
+    --green: #2d9c5f;
+    --green-dim: rgba(45,156,95,0.1);
+    --blue: #3b7dd8;
+    --blue-dim: rgba(59,125,216,0.1);
+    --accent: #e8412a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  .header {
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    background: rgba(10,10,11,0.95);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+  .header-left { display: flex; align-items: center; gap: 20px; }
+  .wordmark {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  .wordmark span { color: var(--red); }
+  .live-badge {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--red-dim);
+    border: 1px solid rgba(232,65,42,0.3);
+    border-radius: 4px;
+    padding: 3px 9px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--red);
+    letter-spacing: 0.08em;
+  }
+  .live-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--red);
+    animation: blink 1.2s infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+  .header-right { display: flex; align-items: center; gap: 16px; }
+  .clock {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--text3);
+  }
+  .refresh-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--text2);
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .refresh-btn:hover { background: var(--surface3); color: var(--text); border-color: var(--border2); }
+  .refresh-btn.spinning svg { animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* TICKER */
+  .ticker {
+    background: var(--red);
+    padding: 7px 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+  }
+  .ticker-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.9);
+    padding: 0 16px;
+    white-space: nowrap;
+    border-right: 1px solid rgba(255,255,255,0.3);
+    margin-right: 16px;
+    flex-shrink: 0;
+  }
+  .ticker-track {
+    display: flex;
+    gap: 48px;
+    animation: scroll 40s linear infinite;
+    white-space: nowrap;
+  }
+  .ticker-track:hover { animation-play-state: paused; }
+  @keyframes scroll { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+  .ticker-item {
+    font-size: 12px;
+    color: rgba(255,255,255,0.92);
+    font-weight: 500;
+  }
+  .ticker-sep { color: rgba(255,255,255,0.4); margin: 0 4px; }
+
+  /* MAIN */
+  .main { display: grid; grid-template-columns: 220px 1fr; min-height: calc(100vh - 88px); }
+
+  /* SIDEBAR */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    padding: 1.5rem 0;
+    position: sticky;
+    top: 88px;
+    height: calc(100vh - 88px);
+    overflow-y: auto;
+  }
+  .sidebar-section { margin-bottom: 2rem; }
+  .sidebar-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    color: var(--text3);
+    text-transform: uppercase;
+    padding: 0 1.25rem;
+    margin-bottom: 8px;
+  }
+  .filter-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 1.25rem;
+    background: none;
+    border: none;
+    color: var(--text2);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.12s;
+    border-left: 2px solid transparent;
+  }
+  .filter-btn:hover { color: var(--text); background: var(--surface2); }
+  .filter-btn.active { color: var(--text); border-left-color: var(--red); background: var(--red-dim); }
+  .filter-count {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+  }
+  .filter-btn.active .filter-count { color: var(--red); }
+
+  .source-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 1.25rem;
+    font-size: 12px;
+    color: var(--text2);
+  }
+  .source-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+  /* CONTENT */
+  .content { padding: 1.5rem; }
+  .content-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 1.25rem;
+  }
+  .result-count { font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospace; }
+  .search-row {
+    display: flex; gap: 8px; align-items: center;
+    margin-bottom: 1.25rem;
+  }
+  .search-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    padding: 8px 14px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .search-input::placeholder { color: var(--text3); }
+  .search-input:focus { border-color: var(--border2); }
+  .sort-select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text2);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    padding: 8px 12px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  /* STATS ROW */
+  .stats-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 1.5rem; }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .stat-label { font-size: 10px; color: var(--text3); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 6px; font-family: 'DM Mono', monospace; }
+  .stat-value { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 700; color: var(--text); line-height: 1; }
+  .stat-sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+  /* CARDS GRID */
+  .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 0.15s, transform 0.15s;
+    display: flex;
+    flex-direction: column;
+    animation: fadeIn 0.3s ease both;
+  }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+  .card:hover { border-color: var(--border2); transform: translateY(-1px); }
+  .card.breaking { border-color: rgba(232,65,42,0.35); }
+
+  .card-img {
+    width: 100%;
+    height: 160px;
+    object-fit: cover;
+    display: block;
+    background: var(--surface2);
+  }
+  .card-img-placeholder {
+    width: 100%; height: 160px;
+    background: var(--surface2);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text3);
+    font-size: 11px;
+  }
+
+  .card-body { padding: 14px 16px; flex: 1; display: flex; flex-direction: column; gap: 8px; }
+  .card-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .source-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.04em;
+  }
+  .breaking-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--red-dim);
+    color: var(--red);
+    border: 1px solid rgba(232,65,42,0.25);
+    letter-spacing: 0.06em;
+  }
+  .card-time { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text3); margin-left: auto; }
+  .card-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.35;
+  }
+  .card-excerpt { font-size: 12px; color: var(--text2); line-height: 1.65; flex: 1; }
+
+  .card-footer {
+    padding: 10px 16px 14px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-top: 1px solid var(--border);
+  }
+  .card-author { font-size: 11px; color: var(--text3); }
+  .btn-assign {
+    background: var(--red);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .btn-assign:hover { opacity: 0.85; }
+  .btn-read {
+    background: none;
+    border: 1px solid var(--border2);
+    color: var(--text2);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-read:hover { background: var(--surface2); color: var(--text); }
+
+  /* EMPTY / LOADING */
+  .state-box {
+    grid-column: 1/-1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 4rem 2rem; gap: 12px;
+    color: var(--text3);
+    font-size: 13px;
+  }
+  .spinner {
+    width: 28px; height: 28px;
+    border: 2px solid var(--border2);
+    border-top-color: var(--red);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  .error-msg { color: var(--red); font-size: 13px; text-align: center; }
+
+  /* API KEY MODAL */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 999;
+    backdrop-filter: blur(4px);
+  }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 16px;
+    padding: 2rem;
+    width: 420px;
+    max-width: 90vw;
+  }
+  .modal h2 { font-family: 'Playfair Display', serif; font-size: 22px; margin-bottom: 8px; }
+  .modal p { font-size: 13px; color: var(--text2); margin-bottom: 1.25rem; line-height: 1.6; }
+  .modal input {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 8px; color: var(--text); font-family: 'DM Mono', monospace;
+    font-size: 13px; padding: 10px 14px; outline: none; margin-bottom: 12px;
+  }
+  .modal input:focus { border-color: var(--red); }
+  .modal-btn {
+    width: 100%; background: var(--red); color: #fff; border: none;
+    border-radius: 8px; padding: 11px; font-family: 'DM Sans', sans-serif;
+    font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity 0.15s;
+  }
+  .modal-btn:hover { opacity: 0.85; }
+
+  scrollbar-width: thin;
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+</div>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-left">
+    <div class="wordmark">entertainment<span>now</span></div>
+    <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+  </div>
+  <div class="header-right">
+    <div class="clock" id="clock"></div>
+    <button class="refresh-btn" id="refreshBtn" onclick="fetchNews()">
+      <svg id="refreshIcon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      Refresh
+    </button>
+  </div>
+</header>
+
+<!-- TICKER -->
+<div class="ticker">
+  <div class="ticker-label">BREAKING</div>
+  <div class="ticker-track" id="tickerTrack">
+    <span class="ticker-item">Loading latest headlines...</span>
+    <span class="ticker-item">Loading latest headlines...</span>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Filter</div>
+      <button class="filter-btn active" onclick="setCategory('all',this)">All Entertainment <span class="filter-count" id="count-all">—</span></button>
+      <button class="filter-btn" onclick="setCategory('celebrity',this)">Celebrity <span class="filter-count" id="count-celebrity">—</span></button>
+      <button class="filter-btn" onclick="setCategory('film',this)">Film <span class="filter-count" id="count-film">—</span></button>
+      <button class="filter-btn" onclick="setCategory('music',this)">Music <span class="filter-count" id="count-music">—</span></button>
+      <button class="filter-btn" onclick="setCategory('tv',this)">TV & Streaming <span class="filter-count" id="count-tv">—</span></button>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Sources</div>
+      <div id="sourcesList"></div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Auto-refresh</div>
+      <button class="filter-btn" id="autoRefreshBtn" onclick="toggleAutoRefresh()">Every 5 min <span class="filter-count" id="autoRefreshStatus">OFF</span></button>
+    </div>
+  </aside>
+
+  <!-- CONTENT -->
+  <main class="content">
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Total Stories</div>
+        <div class="stat-value" id="stat-total">—</div>
+        <div class="stat-sub">this refresh</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Breaking</div>
+        <div class="stat-value" id="stat-breaking" style="color:var(--red)">—</div>
+        <div class="stat-sub">flagged stories</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Sources</div>
+        <div class="stat-value" id="stat-sources">—</div>
+        <div class="stat-sub">active publications</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Last Updated</div>
+        <div class="stat-value" id="stat-updated" style="font-size:18px;padding-top:5px">—</div>
+        <div class="stat-sub">&nbsp;</div>
+      </div>
+    </div>
+
+    <div class="search-row">
+      <input class="search-input" type="text" placeholder="Search headlines..." id="searchInput" oninput="renderCards()" />
+      <select class="sort-select" id="sortSelect" onchange="renderCards()">
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+      </select>
+    </div>
+
+    <div class="content-header">
+      <div class="result-count" id="resultCount">—</div>
+    </div>
+
+    <div class="cards-grid" id="cardsGrid">
+      <div class="state-box"><div class="spinner"></div><span>Connecting to NewsAPI...</span></div>
+    </div>
+  </main>
+</div>
+
+<script>
+let allArticles = [];
+let activeCategory = 'all';
+let autoRefreshInterval = null;
+
+const BREAKING_KEYWORDS = ['breaking','exclusive','just in','confirmed','announces','drops','fired','arrested','dies','dead','cancels','splits','engaged','pregnant','resigns'];
+
+const CATEGORY_KEYWORDS = {
+  celebrity: ['celebrity','kardashian','beyoncé','taylor swift','rihanna','drake','kanye','selena','bieber','miley','dua lipa','bad bunny','zendaya','tom holland','billie eilish','ariana','jennifer lopez','britney'],
+  film: ['film','movie','box office','oscar','academy award','director','actor','actress','sequel','trailer','premiere','cinema','hollywood','marvel','disney','warner','universal','a24'],
+  music: ['music','album','tour','grammy','billboard','single','concert','spotify','rapper','singer','band','record','chart','streaming','release','festival','coachella'],
+  tv: ['netflix','hbo','streaming','series','show','season','episode','emmy','paramount','peacock','hulu','apple tv','prime video','cancelled','renewed','spinoff']
+};
+
+function categorize(article) {
+  const text = ((article.title || '') + ' ' + (article.description || '')).toLowerCase();
+  for (const [cat, kws] of Object.entries(CATEGORY_KEYWORDS)) {
+    if (kws.some(k => text.includes(k))) return cat;
+  }
+  return 'general';
+}
+
+function isBreaking(article) {
+  const text = ((article.title || '') + ' ' + (article.description || '')).toLowerCase();
+  return BREAKING_KEYWORDS.some(k => text.includes(k));
+}
+
+function timeAgo(dateStr) {
+  const diff = (Date.now() - new Date(dateStr)) / 1000;
+  if (diff < 60) return `${Math.floor(diff)}s ago`;
+  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+  return `${Math.floor(diff/86400)}d ago`;
+}
+
+function getSourceColor(name) {
+  const colors = ['#3b7dd8','#2d9c5f','#d4860f','#9b59b6','#e8412a','#16a085','#e74c3c'];
+  let h = 0; for (const c of (name||'')) h = (h*31 + c.charCodeAt(0)) % colors.length;
+  return colors[h];
+}
+
+
+
+async function fetchNews() {
+    const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+  document.getElementById('cardsGrid').innerHTML = '<div class="state-box"><div class="spinner"></div><span>Fetching latest stories...</span></div>';
+
+  const queries = [
+    'entertainment celebrity',
+    'Hollywood film movie',
+    'music album artist',
+    'Netflix streaming TV show'
+  ];
+
+  const results = await Promise.allSettled(queries.map(q =>
+    fetch(`/api/news?q=${encodeURIComponent(q)}&pageSize=25`)
+      .then(r => r.json())
+  ));
+
+  const seen = new Set();
+  allArticles = [];
+
+  for (const r of results) {
+    if (r.status === 'fulfilled' && r.value.articles) {
+      for (const a of r.value.articles) {
+        if (!seen.has(a.url) && a.title && a.title !== '[Removed]') {
+          seen.add(a.url);
+          a._category = categorize(a);
+          a._breaking = isBreaking(a);
+          allArticles.push(a);
+        }
+      }
+    }
+  }
+
+  if (allArticles.length === 0) {
+    const errMsg = results[0]?.value?.message || 'Could not load articles. Check your API key.';
+    document.getElementById('cardsGrid').innerHTML = `<div class="state-box"><div class="error-msg">⚠ ${errMsg}</div></div>`;
+    btn.classList.remove('spinning');
+    return;
+  }
+
+  allArticles.sort((a,b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+
+  updateStats();
+  updateTicker();
+  updateSources();
+  updateCounts();
+  renderCards();
+  btn.classList.remove('spinning');
+
+  const now = new Date();
+  document.getElementById('stat-updated').textContent = now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+}
+
+function updateStats() {
+  document.getElementById('stat-total').textContent = allArticles.length;
+  document.getElementById('stat-breaking').textContent = allArticles.filter(a => a._breaking).length;
+  const srcs = new Set(allArticles.map(a => a.source?.name).filter(Boolean));
+  document.getElementById('stat-sources').textContent = srcs.size;
+}
+
+function updateTicker() {
+  const breaking = allArticles.filter(a => a._breaking).slice(0, 8);
+  const items = breaking.length ? breaking : allArticles.slice(0, 8);
+  const html = items.map(a => `<span class="ticker-item">${a.title}<span class="ticker-sep">·</span></span>`).join('');
+  const track = document.getElementById('tickerTrack');
+  track.innerHTML = html + html;
+}
+
+function updateSources() {
+  const srcMap = {};
+  for (const a of allArticles) {
+    const n = a.source?.name || 'Unknown';
+    srcMap[n] = (srcMap[n] || 0) + 1;
+  }
+  const sorted = Object.entries(srcMap).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  document.getElementById('sourcesList').innerHTML = sorted.map(([name, count]) =>
+    `<div class="source-item"><div class="source-dot" style="background:${getSourceColor(name)}"></div><span>${name}</span><span style="margin-left:auto;font-size:10px;color:var(--text3);font-family:'DM Mono',monospace">${count}</span></div>`
+  ).join('');
+}
+
+function updateCounts() {
+  document.getElementById('count-all').textContent = allArticles.length;
+  for (const [cat] of Object.entries(CATEGORY_KEYWORDS)) {
+    const el = document.getElementById('count-' + cat);
+    if (el) el.textContent = allArticles.filter(a => a._category === cat).length;
+  }
+}
+
+function setCategory(cat, el) {
+  activeCategory = cat;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderCards();
+}
+
+function renderCards() {
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const sort = document.getElementById('sortSelect').value;
+
+  let filtered = activeCategory === 'all' ? allArticles : allArticles.filter(a => a._category === activeCategory);
+  if (search) filtered = filtered.filter(a => (a.title + ' ' + (a.description||'')).toLowerCase().includes(search));
+  if (sort === 'oldest') filtered = [...filtered].reverse();
+
+  document.getElementById('resultCount').textContent = `${filtered.length} stories`;
+
+  if (!filtered.length) {
+    document.getElementById('cardsGrid').innerHTML = '<div class="state-box"><span>No stories match your filter.</span></div>';
+    return;
+  }
+
+  document.getElementById('cardsGrid').innerHTML = filtered.map((a, i) => {
+    const srcColor = getSourceColor(a.source?.name);
+    const srcName = (a.source?.name || 'Unknown').toUpperCase().slice(0, 12);
+    const delay = Math.min(i * 30, 300);
+    return `
+      <div class="card ${a._breaking ? 'breaking' : ''}" style="animation-delay:${delay}ms">
+        ${a.urlToImage
+          ? `<img class="card-img" src="${a.urlToImage}" alt="" onerror="this.parentNode.removeChild(this)">`
+          : ''}
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="source-tag" style="background:${srcColor}22;color:${srcColor};border:1px solid ${srcColor}44">${srcName}</span>
+            ${a._breaking ? '<span class="breaking-tag">BREAKING</span>' : ''}
+            <span class="card-time">${timeAgo(a.publishedAt)}</span>
+          </div>
+          <div class="card-title">${a.title}</div>
+          ${a.description ? `<div class="card-excerpt">${a.description.slice(0,140)}${a.description.length > 140 ? '…' : ''}</div>` : ''}
+        </div>
+        <div class="card-footer">
+          <span class="card-author">${a.author ? a.author.split(',')[0].slice(0,28) : 'Staff reporter'}</span>
+          <div style="display:flex;gap:6px">
+            <button class="btn-read" onclick="window.open('${a.url}','_blank')">Read →</button>
+            <button class="btn-assign" onclick="assignStory(this, '${a.title.replace(/'/g,"\\'")}', '${(a.description||'').slice(0,80).replace(/'/g,"\\'")}')">Assign</button>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function assignStory(btn, title, desc) {
+  btn.textContent = '✓ Assigned';
+  btn.style.background = 'var(--green)';
+  btn.style.opacity = '1';
+  btn.disabled = true;
+}
+
+function toggleAutoRefresh() {
+  if (autoRefreshInterval) {
+    clearInterval(autoRefreshInterval);
+    autoRefreshInterval = null;
+    document.getElementById('autoRefreshStatus').textContent = 'OFF';
+    document.getElementById('autoRefreshBtn').classList.remove('active');
+  } else {
+    autoRefreshInterval = setInterval(fetchNews, 5 * 60 * 1000);
+    document.getElementById('autoRefreshStatus').textContent = 'ON';
+    document.getElementById('autoRefreshBtn').classList.add('active');
+  }
+}
+
+function updateClock() {
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+window.addEventListener('load', fetchNews);
+</script>
+</body>
+</html>
