@@ -5,7 +5,7 @@
 const https = require('https');
 
 const API_KEY = process.env.NEWS_API_KEY || 'eba3bb2993124fb0b3c1117f7535afc2';
-const NEWS_CACHE_MS = 15 * 60 * 1000;
+const NEWS_CACHE_MS = 60 * 60 * 1000; // 60 min — conserves NewsAPI daily limit
 const TX_CACHE_MS   =  2 * 60 * 1000;
 
 const cache = {};
