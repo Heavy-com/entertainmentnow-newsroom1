@@ -134,16 +134,18 @@
       <button class="filter-btn active" id="btn-all" onclick="setCategory('all', this)">All Stories <span class="filter-count" id="count-all">—</span></button>
       <button class="filter-btn" id="btn-breaking" onclick="setCategory('breaking', this)">🔴 Breaking <span class="filter-count" id="count-breaking">—</span></button>
       <button class="filter-btn" id="btn-instagram" onclick="setCategory('instagram', this)">📸 Instagram <span class="filter-count" id="count-instagram">—</span></button>
+      <button class="filter-btn" id="btn-twitter" onclick="setCategory('twitter', this)">𝕏 X / Twitter <span class="filter-count" id="count-twitter">—</span></button>
     </div>
     <div id="sidebarCats"></div>
   </aside>
 
   <main class="content">
-    <div class="stats-row" style="grid-template-columns:repeat(5,1fr)">
+    <div class="stats-row" style="grid-template-columns:repeat(6,1fr)">
       <div class="stat-card"><div class="stat-label">Total Stories</div><div class="stat-value" id="stat-total">—</div><div class="stat-sub">this refresh</div></div>
       <div class="stat-card"><div class="stat-label">Breaking</div><div class="stat-value" id="stat-breaking" style="color:var(--red)">—</div><div class="stat-sub">flagged stories</div></div>
       <div class="stat-card"><div class="stat-label">Categories</div><div class="stat-value" id="stat-cats">—</div><div class="stat-sub">with coverage</div></div>
       <div class="stat-card"><div class="stat-label">Instagram</div><div class="stat-value" id="stat-instagram" style="color:#e1306c">—</div><div class="stat-sub">posts</div></div>
+      <div class="stat-card"><div class="stat-label">X Posts</div><div class="stat-value" id="stat-twitter" style="color:#1d9bf0">—</div><div class="stat-sub">tweets</div></div>
       <div class="stat-card"><div class="stat-label">Last Updated</div><div class="stat-value" id="stat-updated" style="font-size:17px;padding-top:6px">—</div><div class="stat-sub">&nbsp;</div></div>
     </div>
     <div class="content-toolbar">
@@ -246,6 +248,7 @@ const API_QUERIES = [
 
 let allArticles = [];
 let instagramPosts = [];
+let twitterPosts = [];
 let activeCategory = 'all';
 
 function matchCategory(article) {
@@ -284,9 +287,15 @@ async function fetchAllNews() {
   btn.classList.add('spinning');
   document.getElementById('cardsGrid').innerHTML = '<div class="state-box"><div class="spinner"></div><span>Fetching latest stories…</span></div>';
 
-  const [igResult] = await Promise.allSettled([fetch('/api/instagram').then(r=>r.json())]);
+  const [igResult, twResult] = await Promise.allSettled([
+    fetch('/api/instagram').then(r=>r.json()),
+    fetch('/api/twitter').then(r=>r.json())
+  ]);
   if (igResult.status === 'fulfilled' && igResult.value.posts) {
     instagramPosts = igResult.value.posts;
+  }
+  if (twResult.status === 'fulfilled' && twResult.value.tweets) {
+    twitterPosts = twResult.value.tweets;
   }
   const results = await Promise.allSettled(
     API_QUERIES.map(q =>
@@ -330,12 +339,15 @@ async function fetchAllNews() {
 
 function updateStats() {
   document.getElementById('stat-instagram').textContent = instagramPosts.length;
+  document.getElementById('stat-twitter').textContent = twitterPosts.length;
+  const twCountEl = document.getElementById('count-twitter');
+  if (twCountEl) twCountEl.textContent = twitterPosts.length || '—';
   const igTabEl = document.getElementById('tab-count-instagram');
   if (igTabEl) igTabEl.textContent = instagramPosts.length;
   const igCountEl = document.getElementById('count-instagram');
   if (igCountEl) igCountEl.textContent = instagramPosts.length || '—';
-  document.getElementById('count-all').textContent = (allArticles.length + instagramPosts.length) || '—';
-  document.getElementById('stat-total').textContent = allArticles.length + instagramPosts.length;
+  document.getElementById('count-all').textContent = (allArticles.length + instagramPosts.length + twitterPosts.length) || '—';
+  document.getElementById('stat-total').textContent = allArticles.length + instagramPosts.length + twitterPosts.length;
   document.getElementById('stat-breaking').textContent = allArticles.filter(a => a._breaking).length;
   const activeCats = new Set(allArticles.flatMap(a => a._categories).filter(c => c !== 'general'));
   document.getElementById('stat-cats').textContent = activeCats.size;
@@ -391,10 +403,12 @@ function renderCards() {
   let filtered;
   if (activeCategory === 'instagram') {
     filtered = instagramPosts;
+  } else if (activeCategory === 'twitter') {
+    filtered = twitterPosts;
   } else if (activeCategory === 'breaking') {
     filtered = allArticles.filter(a => a._breaking);
   } else if (activeCategory === 'all') {
-    filtered = [...allArticles, ...instagramPosts];
+    filtered = [...allArticles, ...instagramPosts, ...twitterPosts];
   } else {
     const newsFiltered = allArticles.filter(a => a._categories.includes(activeCategory));
     const igFiltered = instagramPosts.filter(p => p._categories && p._categories.includes(activeCategory));
@@ -413,11 +427,10 @@ function renderCards() {
   }
 
   // Find category label for a card
-const getCatLabel = (a) => {
-    if (!a._categories) return null;
+  const getCatLabel = (a) => {
     const cat = CATEGORIES.find(c => a._categories.includes(c.id));
     return cat ? cat.label : null;
-};
+  };
 
   document.getElementById('cardsGrid').innerHTML = filtered.map((a, i) => {
     const srcColor = getSourceColor(a.source?.name);
@@ -425,6 +438,7 @@ const getCatLabel = (a) => {
     const catLabel = getCatLabel(a);
     const delay = Math.min(i * 25, 400);
     if (a._type === 'instagram') return renderInstagramCard(a, delay);
+    if (a._type === 'twitter') return renderTwitterCard(a, delay);
     return `
       <div class="card ${a._breaking ? 'breaking' : ''}" style="animation-delay:${delay}ms">
         ${a.urlToImage ? `<img class="card-img" src="${a.urlToImage}" alt="" onerror="this.parentNode.removeChild(this)">` : ''}
@@ -490,6 +504,41 @@ function renderInstagramCard(p, delay) {
       <span style="font-size:10px;font-family:'DM Mono',monospace;color:#e1306c">INSTAGRAM</span>
       <div style="display:flex;gap:6px">
         <button class="btn-read" onclick="window.open('${p.url}','_blank')">View →</button>
+        <button class="btn-assign" onclick="this.textContent='✓ Assigned';this.classList.add('assigned');this.disabled=true">Assign</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderTwitterCard(t, delay) {
+  const initials = (t.displayName || t.username || 'X').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  const text = (t.text || '').slice(0, 280);
+  const time = t.timestamp ? new Date(t.timestamp).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+  return `<div class="card twitter" style="animation-delay:${delay}ms">
+    <div class="ig-header">
+      <div class="ig-avatar" style="background:#1d9bf022;color:#1d9bf0;border:1px solid #1d9bf044">${initials}</div>
+      <div>
+        <div class="ig-name">${t.displayName || t.username}</div>
+        <div class="ig-handle">@${t.username}</div>
+      </div>
+      <div style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <span class="type-tag" style="background:#1d9bf022;color:#1d9bf0;border:1px solid #1d9bf044;font-family:'DM Mono',monospace;font-size:10px;padding:2px 7px;border-radius:4px;letter-spacing:0.03em">𝕏 POST</span>
+        <span class="card-time">${time}</span>
+      </div>
+    </div>
+    <div class="ig-body">
+      <div class="ig-caption" style="font-size:13px;line-height:1.6">${text}</div>
+    </div>
+    <div class="ig-metrics">
+      <div class="ig-metric">❤️ <span>${(t.likesCount||0).toLocaleString()}</span></div>
+      <div class="ig-metric">🔁 <span>${(t.retweetCount||0).toLocaleString()}</span></div>
+      ${t.replyCount ? `<div class="ig-metric">💬 <span>${t.replyCount.toLocaleString()}</span></div>` : ''}
+      ${t.viewCount ? `<div class="ig-metric">👁 <span>${t.viewCount.toLocaleString()}</span></div>` : ''}
+    </div>
+    <div class="ig-footer">
+      <span style="font-size:10px;font-family:'DM Mono',monospace;color:#1d9bf0">X / TWITTER</span>
+      <div style="display:flex;gap:6px">
+        ${t.url ? `<button class="btn-read" onclick="window.open('${t.url}','_blank')">View →</button>` : ''}
         <button class="btn-assign" onclick="this.textContent='✓ Assigned';this.classList.add('assigned');this.disabled=true">Assign</button>
       </div>
     </div>
