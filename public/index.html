@@ -432,7 +432,11 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock();
 
-window.addEventListener('load', fetchAllNews);
+window.addEventListener('load', () => {
+  fetchAllNews();
+  // Auto-refresh every 15 minutes to match NewsAPI cache window
+  setInterval(fetchAllNews, 15 * 60 * 1000);
+});
 </script>
 </body>
 </html>
