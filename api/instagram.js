@@ -1,14 +1,9 @@
-// api/instagram.js — Vercel serverless function
-// Fetches latest posts from followed Instagram accounts via Apify
-// Cache: 15 minutes to conserve Apify credits
-
 const https = require('https');
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
-const CACHE_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+const CACHE_DURATION_MS = 15 * 60 * 1000;
 let cache = null;
 
-// Instagram accounts to follow
 const ACCOUNTS = [
   'people',
   'tmz',
@@ -49,8 +44,8 @@ function normalizePost(post) {
   return {
     _type: 'instagram',
     id: post.id || post.shortCode,
-    username: post.ownerUsername,
-    displayName: post.ownerFullName || post.ownerUsername,
+    username: post.ownerUsername || 'unknown',
+    displayName: post.ownerFullName || post.ownerUsername || 'Unknown',
     caption: post.caption || '',
     hashtags: post.hashtags || [],
     url: post.url,
@@ -71,11 +66,9 @@ module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
-  if (!APIFY_TOKEN) return res.status(500).json({ error: 'APIFY_TOKEN environment variable not set' });
+  if (!APIFY_TOKEN) return res.status(500).json({ error: 'APIFY_TOKEN not set' });
 
   const now = Date.now();
-
-  // Return cached result if fresh
   if (cache && (now - cache.timestamp) < CACHE_DURATION_MS) {
     res.setHeader('X-Cache', 'HIT');
     return res.status(200).json(cache.data);
@@ -91,12 +84,17 @@ module.exports = async (req, res) => {
 
     const { status, body } = await runApifyActor(input);
 
-    if (status !== 200 || !Array.isArray(body)) {
-      return res.status(status).json({ error: 'Apify error', detail: body });
+    // Apify returns the array directly, or wraps it — handle both
+    const rawPosts = Array.isArray(body) ? body
+      : Array.isArray(body.detail) ? body.detail
+      : null;
+
+    if (!rawPosts) {
+      return res.status(500).json({ error: 'Unexpected Apify response', detail: body });
     }
 
-    const posts = body
-      .filter(p => p.timestamp && p.ownerUsername)
+    const posts = rawPosts
+      .filter(p => p.timestamp && p.url)
       .map(normalizePost)
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
