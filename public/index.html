@@ -133,15 +133,17 @@
       </div>
       <button class="filter-btn active" id="btn-all" onclick="setCategory('all', this)">All Stories <span class="filter-count" id="count-all">—</span></button>
       <button class="filter-btn" id="btn-breaking" onclick="setCategory('breaking', this)">🔴 Breaking <span class="filter-count" id="count-breaking">—</span></button>
+      <button class="filter-btn" id="btn-instagram" onclick="setCategory('instagram', this)">📸 Instagram <span class="filter-count" id="count-instagram">—</span></button>
     </div>
     <div id="sidebarCats"></div>
   </aside>
 
   <main class="content">
-    <div class="stats-row">
+    <div class="stats-row" style="grid-template-columns:repeat(5,1fr)">
       <div class="stat-card"><div class="stat-label">Total Stories</div><div class="stat-value" id="stat-total">—</div><div class="stat-sub">this refresh</div></div>
       <div class="stat-card"><div class="stat-label">Breaking</div><div class="stat-value" id="stat-breaking" style="color:var(--red)">—</div><div class="stat-sub">flagged stories</div></div>
       <div class="stat-card"><div class="stat-label">Categories</div><div class="stat-value" id="stat-cats">—</div><div class="stat-sub">with coverage</div></div>
+      <div class="stat-card"><div class="stat-label">Instagram</div><div class="stat-value" id="stat-instagram" style="color:#e1306c">—</div><div class="stat-sub">posts</div></div>
       <div class="stat-card"><div class="stat-label">Last Updated</div><div class="stat-value" id="stat-updated" style="font-size:17px;padding-top:6px">—</div><div class="stat-sub">&nbsp;</div></div>
     </div>
     <div class="content-toolbar">
@@ -243,6 +245,7 @@ const API_QUERIES = [
 ];
 
 let allArticles = [];
+let instagramPosts = [];
 let activeCategory = 'all';
 
 function matchCategory(article) {
@@ -281,6 +284,7 @@ async function fetchAllNews() {
   btn.classList.add('spinning');
   document.getElementById('cardsGrid').innerHTML = '<div class="state-box"><div class="spinner"></div><span>Fetching latest stories…</span></div>';
 
+  const [igResult, ...newsAndOthers] = await Promise.allSettled([fetch('/api/instagram').then(r=>r.json())]);
   const results = await Promise.allSettled(
     API_QUERIES.map(q =>
       fetch(`/api/news?q=${encodeURIComponent(q)}&pageSize=25`)
@@ -322,7 +326,13 @@ async function fetchAllNews() {
 }
 
 function updateStats() {
-  document.getElementById('stat-total').textContent = allArticles.length;
+  document.getElementById('stat-instagram').textContent = instagramPosts.length;
+  const igTabEl = document.getElementById('tab-count-instagram');
+  if (igTabEl) igTabEl.textContent = instagramPosts.length;
+  const igCountEl = document.getElementById('count-instagram');
+  if (igCountEl) igCountEl.textContent = instagramPosts.length || '—';
+  document.getElementById('count-all').textContent = (allArticles.length + instagramPosts.length) || '—';
+  document.getElementById('stat-total').textContent = allArticles.length + instagramPosts.length;
   document.getElementById('stat-breaking').textContent = allArticles.filter(a => a._breaking).length;
   const activeCats = new Set(allArticles.flatMap(a => a._categories).filter(c => c !== 'general'));
   document.getElementById('stat-cats').textContent = activeCats.size;
@@ -372,14 +382,18 @@ function renderCards() {
   const search = document.getElementById('searchInput').value.toLowerCase();
   const sort = document.getElementById('sortSelect').value;
 
-  let filtered = allArticles;
-  if (activeCategory === 'breaking') {
+  let filtered;
+  if (activeCategory === 'instagram') {
+    filtered = instagramPosts;
+  } else if (activeCategory === 'breaking') {
     filtered = allArticles.filter(a => a._breaking);
-  } else if (activeCategory !== 'all') {
+  } else if (activeCategory === 'all') {
+    filtered = [...allArticles, ...instagramPosts];
+  } else {
     filtered = allArticles.filter(a => a._categories.includes(activeCategory));
   }
   if (search) {
-    filtered = filtered.filter(a => (a.title + ' ' + (a.description || '')).toLowerCase().includes(search));
+    filtered = filtered.filter(a => ((a.title||a.caption||'') + ' ' + (a.description||a.username||'')).toLowerCase().includes(search));
   }
   if (sort === 'oldest') filtered = [...filtered].reverse();
 
@@ -401,6 +415,7 @@ function renderCards() {
     const srcName = (a.source?.name || 'Unknown').toUpperCase().slice(0, 14);
     const catLabel = getCatLabel(a);
     const delay = Math.min(i * 25, 400);
+    if (a._type === 'instagram') return renderInstagramCard(a, delay);
     return `
       <div class="card ${a._breaking ? 'breaking' : ''}" style="animation-delay:${delay}ms">
         ${a.urlToImage ? `<img class="card-img" src="${a.urlToImage}" alt="" onerror="this.parentNode.removeChild(this)">` : ''}
@@ -431,6 +446,46 @@ function updateClock() {
 }
 setInterval(updateClock, 1000);
 updateClock();
+
+function renderInstagramCard(p, delay) {
+  const initials = (p.displayName||p.username||'IG').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  const caption = (p.caption||'').slice(0, 200);
+  const hashtags = (p.hashtags||[]).slice(0,5);
+  const time = new Date(p.timestamp).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  return `<div class="card instagram" style="animation-delay:${delay}ms">
+    <div class="ig-header">
+      <div class="ig-avatar">${initials}</div>
+      <div>
+        <div class="ig-name">${p.displayName||p.username}</div>
+        <div class="ig-handle">@${p.username}</div>
+      </div>
+      <div style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <span class="type-tag type-ig">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:3px"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><circle cx="17.5" cy="6.5" r=".5" fill="currentColor"/></svg>
+          INSTAGRAM
+        </span>
+        <span class="card-time">${time}</span>
+      </div>
+    </div>
+    ${p.displayUrl ? `<img class="ig-image" src="${p.displayUrl}" alt="" onerror="this.style.display='none'">` : ''}
+    <div class="ig-body">
+      <div class="ig-caption">${caption}${p.caption&&p.caption.length>200?'…':''}</div>
+      ${hashtags.length ? `<div class="ig-hashtags">${hashtags.map(h=>`<span class="ig-hashtag">#${h}</span>`).join('')}</div>` : ''}
+    </div>
+    <div class="ig-metrics">
+      <div class="ig-metric">❤️ <span>${(p.likesCount||0).toLocaleString()}</span></div>
+      <div class="ig-metric">💬 <span>${(p.commentsCount||0).toLocaleString()}</span></div>
+      ${p.videoViewCount ? `<div class="ig-metric">👁 <span>${p.videoViewCount.toLocaleString()}</span></div>` : ''}
+    </div>
+    <div class="ig-footer">
+      <span style="font-size:10px;font-family:'DM Mono',monospace;color:#e1306c">INSTAGRAM</span>
+      <div style="display:flex;gap:6px">
+        <button class="btn-read" onclick="window.open('${p.url}','_blank')">View →</button>
+        <button class="btn-assign" onclick="this.textContent='✓ Assigned';this.classList.add('assigned');this.disabled=true">Assign</button>
+      </div>
+    </div>
+  </div>`;
+}
 
 window.addEventListener('load', () => {
   fetchAllNews();
