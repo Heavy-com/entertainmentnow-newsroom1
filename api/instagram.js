@@ -1,3 +1,7 @@
+module.exports = async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  return res.status(200).json({ posts: [], count: 0, disabled: true });
+
 const https = require('https');
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
