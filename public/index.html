@@ -287,11 +287,13 @@ async function fetchAllNews() {
   btn.classList.add('spinning');
   document.getElementById('cardsGrid').innerHTML = '<div class="state-box"><div class="spinner"></div><span>Fetching latest stories…</span></div>';
 
-const [twResult] = await Promise.allSettled([
+  const [igResult, twResult] = await Promise.allSettled([
+    fetch('/api/instagram').then(r=>r.json()),
     fetch('/api/twitter').then(r=>r.json())
   ]);
-  // Instagram temporarily disabled
-  instagramPosts = [];
+  if (igResult.status === 'fulfilled' && igResult.value.posts) {
+    instagramPosts = igResult.value.posts;
+  }
   if (twResult.status === 'fulfilled' && twResult.value.tweets) {
     twitterPosts = twResult.value.tweets;
   }
@@ -425,11 +427,11 @@ function renderCards() {
   }
 
   // Find category label for a card
-const getCatLabel = (a) => {
+  const getCatLabel = (a) => {
     if (!a._categories) return null;
     const cat = CATEGORIES.find(c => a._categories.includes(c.id));
     return cat ? cat.label : null;
-};
+  };
 
   document.getElementById('cardsGrid').innerHTML = filtered.map((a, i) => {
     const srcColor = getSourceColor(a.source?.name);
@@ -547,7 +549,7 @@ function renderTwitterCard(t, delay) {
 window.addEventListener('load', () => {
   fetchAllNews();
   // Auto-refresh every 15 minutes to match NewsAPI cache window
-  setInterval(fetchAllNews, 15 * 60 * 1000);
+  setInterval(fetchAllNews, 60 * 60 * 1000); // 60 min — conserves NewsAPI daily limit
 });
 </script>
 </body>
