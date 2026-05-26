@@ -10,16 +10,11 @@ let cache = null;
 
 // Instagram accounts to follow
 const ACCOUNTS = [
-  'eentertainment',
   'people',
   'tmz',
   'variety',
-  'justjared',
-  'enews',
   'billboard',
-  'hollywoodlife',
-  'usweekly',
-  'entertainmenttonight'
+  'enews'
 ];
 
 function runApifyActor(input) {
@@ -27,7 +22,7 @@ function runApifyActor(input) {
     const body = JSON.stringify(input);
     const options = {
       hostname: 'api.apify.com',
-      path: `/v2/acts/apify~instagram-post-scraper/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=60&memory=256`,
+      path: `/v2/acts/apify~instagram-post-scraper/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=120&memory=256`,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -88,9 +83,9 @@ module.exports = async (req, res) => {
 
   try {
     const input = {
-      directUrls: ACCOUNTS.map(u => `https://www.instagram.com/${u}/`),
+      username: ACCOUNTS,
       resultsType: 'posts',
-      resultsLimit: 5, // 5 posts per account = 50 total
+      resultsLimit: 3,
       addParentData: false
     };
 
