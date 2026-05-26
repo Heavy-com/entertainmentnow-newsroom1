@@ -348,10 +348,13 @@ function updateTicker() {
 function renderSidebar() {
   const search = (document.getElementById('catSearch')?.value || '').toLowerCase();
 
-  // Count articles per category
+  // Count articles + instagram posts per category
   const counts = {};
   for (const a of allArticles) {
     for (const cid of a._categories) counts[cid] = (counts[cid] || 0) + 1;
+  }
+  for (const p of instagramPosts) {
+    for (const cid of (p._categories || [])) counts[cid] = (counts[cid] || 0) + 1;
   }
   document.getElementById('count-all').textContent = allArticles.length || '—';
   document.getElementById('count-breaking').textContent = allArticles.filter(a => a._breaking).length || '—';
@@ -390,7 +393,9 @@ function renderCards() {
   } else if (activeCategory === 'all') {
     filtered = [...allArticles, ...instagramPosts];
   } else {
-    filtered = allArticles.filter(a => a._categories.includes(activeCategory));
+    const newsFiltered = allArticles.filter(a => a._categories.includes(activeCategory));
+    const igFiltered = instagramPosts.filter(p => p._categories && p._categories.includes(activeCategory));
+    filtered = [...newsFiltered, ...igFiltered];
   }
   if (search) {
     filtered = filtered.filter(a => ((a.title||a.caption||'') + ' ' + (a.description||a.username||'')).toLowerCase().includes(search));
