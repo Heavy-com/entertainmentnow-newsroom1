@@ -427,10 +427,11 @@ function renderCards() {
   }
 
   // Find category label for a card
-  const getCatLabel = (a) => {
+const getCatLabel = (a) => {
+    if (!a._categories) return null;
     const cat = CATEGORIES.find(c => a._categories.includes(c.id));
     return cat ? cat.label : null;
-  };
+};
 
   document.getElementById('cardsGrid').innerHTML = filtered.map((a, i) => {
     const srcColor = getSourceColor(a.source?.name);
