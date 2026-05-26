@@ -287,13 +287,11 @@ async function fetchAllNews() {
   btn.classList.add('spinning');
   document.getElementById('cardsGrid').innerHTML = '<div class="state-box"><div class="spinner"></div><span>Fetching latest stories…</span></div>';
 
-  const [igResult, twResult] = await Promise.allSettled([
-    fetch('/api/instagram').then(r=>r.json()),
+const [twResult] = await Promise.allSettled([
     fetch('/api/twitter').then(r=>r.json())
   ]);
-  if (igResult.status === 'fulfilled' && igResult.value.posts) {
-    instagramPosts = igResult.value.posts;
-  }
+  // Instagram temporarily disabled
+  instagramPosts = [];
   if (twResult.status === 'fulfilled' && twResult.value.tweets) {
     twitterPosts = twResult.value.tweets;
   }
