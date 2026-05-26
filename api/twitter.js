@@ -1,12 +1,9 @@
 const https = require('https');
 
-const APIFY_TOKEN = process.env.APIFY_TOKEN;
 const CACHE_DURATION_MS = 15 * 60 * 1000;
 let cache = null;
 
-// Scrape in batches to avoid timeout — Apify Twitter scraper is faster than Instagram
-// 150 accounts total, split into 3 batches of 50
-const ACCOUNTS_BATCH_1 = [
+const ACCOUNTS = [
   'ABC','ABCSharkTank','AETV','AGT','AmazingRaceCBS','AmericanIdol','Andy','AP',
   'AppleTV','ArchDigest','BachelorABC','BacheloretteABC','BBMAs','BET','bflay',
   'blakeshelton','BravoTopChef','BravoTV','BravoWWHL','candacecbure',
@@ -15,10 +12,7 @@ const ACCOUNTS_BATCH_1 = [
   'danicamckellar','Discovery','Disney','DollyParton','enews',
   'etnow','FriendsTV','GAfamilyTV','GeneralHospital','GoldenBachABC',
   'goldenglobes','GordonRamsay','GreysABC','GuyFieri','gwenstefani',
-  'hallmarkchannel','HallmarkWCTH','harrypotter','HeartlandOnCBC','HellsKitchenFOX'
-];
-
-const ACCOUNTS_BATCH_2 = [
+  'hallmarkchannel','HallmarkWCTH','harrypotter','HeartlandOnCBC','HellsKitchenFOX',
   'hgtv','HISTORY','hulu','JerseyShore','juliannehough',
   'kardashianshulu','khloekardashian','KimKardashian','kourtneykardash','KrisJenner',
   'LatinGRAMMYs','lifetimetv','loveislandusa','mariolopezviva','MaskedSingerFOX',
@@ -28,13 +22,10 @@ const ACCOUNTS_BATCH_2 = [
   'paramountplus','peacock','people','playbill','PropertyBrother',
   'reba','RecordingAcad','robkardashian','RollingStone','RuPaulsDragRace',
   'SAGawards','sanbenito','SharnaBurgess','SouthernCharmTV','survivorcbs',
-  'Susan_Lucci','TasteOfCountry','TeenMom','TheAcademy','TheEmmys'
-];
-
-const ACCOUNTS_BATCH_3 = [
+  'Susan_Lucci','TasteOfCountry','TeenMom','TheAcademy','TheEmmys',
   'TheTraitorsUS','TheView','TLC','TMZ','Variety',
   'VH1','voguemagazine','WEtv','withBAGpod','YandR_CBS',
-  'Yellowstone','accesshollywood','AmericanPicker','americanpickers','Avengers',
+  'Yellowstone','accesshollywood','americanpickers','Avengers',
   'BandB_CBS','Batman','BLACKPINK','blakelively','bridgerton',
   'bts_bighit','CameronMathison','CBSNews','ChelseaHouska','chipgaines',
   'DCOfficial','Deadpool','derekhough','DrDubrow','DrewBarrymore',
@@ -43,69 +34,96 @@ const ACCOUNTS_BATCH_3 = [
   'jk_rowling','JLo','joannagaines','JonathanScott','JYPETWICE',
   'KathyHilton','katyperry','kellyclarkson','KellyClarksonTV','kellymarklive',
   'Kimzolciak','KyleRichards','LionelRichie','lukebryan','MAFSLifetime',
-  'magnolia','Marvel','MrDrewScott','MSN','MSNBCDaily',
+  'magnolia','Marvel','MrDrewScott','MSNBCDaily',
   'NBCNews','NeNeLeakes','ParisHilton','RealEricDane','RealHughJackman',
-  'RyanSeacrest','scotsmanco','ScreamMovies','shondarhimes','SpiderMan',
+  'RyanSeacrest','ScreamMovies','shondarhimes','SpiderMan',
   'StarTrek','starwars','Stray_Kids','Superman','TamraJudgeOC',
   'taylorswift13','TeddiMellencamp','Teresa_Giudice','TheWayHomeX','tkelce',
-  'TomCruise','typennington','VancityReynolds','vgunvalson','weareoneEXO',
+  'TomCruise','typennington','VancityReynolds','vgunvalson',
   'WilliamShatner','WillieNelson','Z100NewYork','ZooeyDeschanel'
 ];
 
-function runApifyBatch(handles) {
+// Nitter instances to try in order
+const NITTER_HOSTS = [
+  'nitter.poast.org',
+  'nitter.privacydev.net',
+  'nitter.lucabased.space'
+];
+
+function fetchUrl(hostname, path) {
   return new Promise((resolve, reject) => {
-    const input = JSON.stringify({
-      twitterHandles: handles,
-      maxTweets: 3,
-      addUserInfo: true
-    });
-
     const options = {
-      hostname: 'api.apify.com',
-      path: `/v2/acts/apidojo~tweet-scraper/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=120&memory=256`,
-      method: 'POST',
+      hostname,
+      path,
+      method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(input)
-      }
+        'User-Agent': 'Mozilla/5.0 (compatible; newsbot/1.0)',
+        'Accept': 'application/rss+xml, application/xml, text/xml, */*'
+      },
+      timeout: 8000
     };
-
-    const req = https.request(options, (res) => {
+    const req = https.request(options, res => {
       let data = '';
       res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch (e) { resolve([]); }
-      });
+      res.on('end', () => resolve({ status: res.statusCode, body: data }));
     });
-
-    req.on('error', () => resolve([]));
-    req.write(input);
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
     req.end();
   });
 }
 
-function normalizeTweet(tweet) {
-  const username = tweet.author?.userName || tweet.user?.screen_name || tweet.userName || 'unknown';
-  const displayName = tweet.author?.name || tweet.user?.name || username;
-  const text = tweet.text || tweet.full_text || '';
-  const timestamp = tweet.createdAt || tweet.created_at || null;
-  const url = tweet.url || (username !== 'unknown' ? `https://twitter.com/${username}/status/${tweet.id}` : null);
+function parseRSSItems(xml, handle) {
+  const items = [];
+  const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+  let match;
+  while ((match = itemRegex.exec(xml)) !== null) {
+    const block = match[1];
+    const get = tag => {
+      const m = block.match(new RegExp(`<${tag}[^>]*><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>|<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`));
+      return m ? (m[1] || m[2] || '').trim() : '';
+    };
+    const title = get('title');
+    const link = get('link') || get('guid');
+    const pubDate = get('pubDate');
+    const desc = get('description');
 
-  return {
-    _type: 'twitter',
-    id: tweet.id || tweet.id_str,
-    username,
-    displayName,
-    text,
-    url,
-    likesCount: tweet.likeCount || tweet.favorite_count || 0,
-    retweetCount: tweet.retweetCount || tweet.retweet_count || 0,
-    replyCount: tweet.replyCount || 0,
-    viewCount: tweet.viewCount || 0,
-    timestamp,
-    _sortDate: timestamp ? new Date(timestamp) : new Date(0)
-  };
+    // Strip HTML from description to get plain text
+    const text = (desc || title).replace(/<[^>]+>/g, '').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").trim();
+
+    if (text && pubDate) {
+      items.push({
+        _type: 'twitter',
+        id: link || `${handle}-${pubDate}`,
+        username: handle,
+        displayName: handle,
+        text: text.slice(0, 560),
+        url: link ? link.replace('nitter.poast.org','twitter.com').replace('nitter.privacydev.net','twitter.com').replace('nitter.lucabased.space','twitter.com') : `https://twitter.com/${handle}`,
+        likesCount: 0,
+        retweetCount: 0,
+        replyCount: 0,
+        viewCount: 0,
+        timestamp: new Date(pubDate).toISOString(),
+        _sortDate: new Date(pubDate)
+      });
+    }
+  }
+  return items;
+}
+
+async function fetchAccountRSS(handle) {
+  for (const host of NITTER_HOSTS) {
+    try {
+      const { status, body } = await fetchUrl(host, `/${handle}/rss`);
+      if (status === 200 && body.includes('<item>')) {
+        const items = parseRSSItems(body, handle);
+        if (items.length) return items.slice(0, 3);
+      }
+    } catch (e) {
+      // try next host
+    }
+  }
+  return [];
 }
 
 module.exports = async (req, res) => {
@@ -114,7 +132,6 @@ module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
-  if (!APIFY_TOKEN) return res.status(500).json({ error: 'APIFY_TOKEN not set' });
 
   const now = Date.now();
   if (cache && (now - cache.timestamp) < CACHE_DURATION_MS) {
@@ -123,30 +140,24 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // Run all 3 batches in parallel
-    const [r1, r2, r3] = await Promise.all([
-      runApifyBatch(ACCOUNTS_BATCH_1),
-      runApifyBatch(ACCOUNTS_BATCH_2),
-      runApifyBatch(ACCOUNTS_BATCH_3)
-    ]);
-
-    const rawTweets = [
-      ...(Array.isArray(r1) ? r1 : Array.isArray(r1?.detail) ? r1.detail : []),
-      ...(Array.isArray(r2) ? r2 : Array.isArray(r2?.detail) ? r2.detail : []),
-      ...(Array.isArray(r3) ? r3 : Array.isArray(r3?.detail) ? r3.detail : [])
-    ];
+    // Fetch in parallel batches of 20 to avoid overwhelming nitter
+    const results = [];
+    const batchSize = 20;
+    for (let i = 0; i < ACCOUNTS.length; i += batchSize) {
+      const batch = ACCOUNTS.slice(i, i + batchSize);
+      const batchResults = await Promise.all(batch.map(h => fetchAccountRSS(h)));
+      results.push(...batchResults.flat());
+    }
 
     const seen = new Set();
-    const tweets = rawTweets
+    const tweets = results
       .filter(t => {
-        const id = t.id || t.id_str;
-        if (!id || seen.has(id)) return false;
-        seen.add(id);
-        return (t.text || t.full_text) && (t.createdAt || t.created_at);
+        if (seen.has(t.id)) return false;
+        seen.add(t.id);
+        return true;
       })
-      .map(normalizeTweet)
       .sort((a, b) => b._sortDate - a._sortDate)
-      .slice(0, 200); // cap at 200 most recent
+      .slice(0, 300);
 
     const data = { tweets, count: tweets.length, fetchedAt: new Date().toISOString() };
     cache = { timestamp: now, data };
