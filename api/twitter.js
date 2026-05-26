@@ -55,7 +55,7 @@ const ACCOUNTS_BATCH_3 = [
 function runApifyBatch(handles) {
   return new Promise((resolve, reject) => {
     const input = JSON.stringify({
-      startUrls: handles.map(h => ({ url: `https://twitter.com/${h}` })),
+      twitterHandles: handles,
       maxTweets: 3,
       addUserInfo: true
     });
