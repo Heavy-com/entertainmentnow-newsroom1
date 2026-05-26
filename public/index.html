@@ -284,7 +284,10 @@ async function fetchAllNews() {
   btn.classList.add('spinning');
   document.getElementById('cardsGrid').innerHTML = '<div class="state-box"><div class="spinner"></div><span>Fetching latest stories…</span></div>';
 
-  const [igResult, ...newsAndOthers] = await Promise.allSettled([fetch('/api/instagram').then(r=>r.json())]);
+  const [igResult] = await Promise.allSettled([fetch('/api/instagram').then(r=>r.json())]);
+  if (igResult.status === 'fulfilled' && igResult.value.posts) {
+    instagramPosts = igResult.value.posts;
+  }
   const results = await Promise.allSettled(
     API_QUERIES.map(q =>
       fetch(`/api/news?q=${encodeURIComponent(q)}&pageSize=25`)
